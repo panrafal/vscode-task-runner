@@ -1,0 +1,182 @@
+{
+  "name": "task-runner",
+  "displayName": "Task Runner",
+  "description": "A better task panel — discover and run npm/pnpm/yarn scripts and VS Code tasks in a single tree view",
+  "version": "0.1.0",
+  "publisher": "stamina",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AudienseCo/vscode-task-runner"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "task",
+    "runner",
+    "npm",
+    "pnpm",
+    "yarn",
+    "scripts",
+    "monorepo",
+    "workspaces"
+  ],
+  "icon": "icons/extension-icon.png",
+  "activationEvents": [
+    "workspaceContains:**/package.json",
+    "onView:taskRunner.view"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "taskDefinitions": [
+      {
+        "type": "taskRunner",
+        "properties": {
+          "command": { "type": "string" },
+          "cwd": { "type": "string" }
+        },
+        "required": ["command"]
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "taskRunner.view",
+          "name": "Task Runner"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "taskRunner.run",
+        "title": "Run",
+        "icon": {
+          "light": "icons/play-green.svg",
+          "dark": "icons/play-green.svg"
+        }
+      },
+      {
+        "command": "taskRunner.debug",
+        "title": "Debug",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "taskRunner.stop",
+        "title": "Stop",
+        "icon": {
+          "light": "icons/stop-red.svg",
+          "dark": "icons/stop-red.svg"
+        }
+      },
+      {
+        "command": "taskRunner.configureTask",
+        "title": "Configure Task",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "taskRunner.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "taskRunner.open",
+        "title": "Open"
+      },
+      {
+        "command": "taskRunner.itemClicked",
+        "title": "Task Item Clicked"
+      },
+      {
+        "command": "taskRunner.runTask",
+        "title": "Task Runner: Run Task"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "taskRunner.refresh",
+          "when": "view == taskRunner.view",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "taskRunner.configureTask",
+          "when": "view == taskRunner.view && viewItem =~ /^task\\./",
+          "group": "inline@1"
+        },
+        {
+          "command": "taskRunner.debug",
+          "when": "view == taskRunner.view && viewItem =~ /^task\\.(idle|succeeded|failed)$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "taskRunner.run",
+          "when": "view == taskRunner.view && viewItem =~ /^task\\.(idle|succeeded|failed)$/",
+          "group": "inline@3"
+        },
+        {
+          "command": "taskRunner.stop",
+          "when": "view == taskRunner.view && viewItem == task.running",
+          "group": "inline@3"
+        },
+        {
+          "command": "taskRunner.open",
+          "when": "view == taskRunner.view && viewItem =~ /^task\\./",
+          "group": "1_open"
+        },
+        {
+          "command": "taskRunner.configureTask",
+          "when": "view == taskRunner.view && viewItem =~ /^task\\./",
+          "group": "2_configure"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "taskRunner.run",
+          "when": "false"
+        },
+        {
+          "command": "taskRunner.debug",
+          "when": "false"
+        },
+        {
+          "command": "taskRunner.stop",
+          "when": "false"
+        },
+        {
+          "command": "taskRunner.configureTask",
+          "when": "false"
+        },
+        {
+          "command": "taskRunner.open",
+          "when": "false"
+        },
+        {
+          "command": "taskRunner.itemClicked",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "vsce:package": "npm run package && vsce package",
+    "vsce:publish": "npm run package && vsce publish"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.19.0",
+    "typescript": "^5.3.0"
+  }
+}
