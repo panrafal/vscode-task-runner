@@ -58,18 +58,39 @@ export function registerCommands(
       }
     }),
 
-    vscode.commands.registerCommand("taskRunner.itemClicked", (item: TaskTreeItem) => {
-      if (!item?.entry) {
-        return;
-      }
+    vscode.commands.registerCommand("taskRunner.itemClicked", (() => {
+      let lastClickedKey: string | undefined;
+      let lastClickTime = 0;
 
-      const state = tracker.getState(item.entry);
-      if (state === TaskState.Running || tracker.hasTerminal(item.entry)) {
-        runner.focusTerminal(item.entry);
-      } else {
-        openDeclaration(item.entry);
-      }
-    }),
+      return (item: TaskTreeItem) => {
+        if (!item?.entry) {
+          return;
+        }
+
+        const state = tracker.getState(item.entry);
+        const now = Date.now();
+        const key = item.entry.kind === "script"
+          ? `${item.entry.packageJsonPath}:${item.entry.name}`
+          : `${item.entry.taskJsonPath}:${item.entry.label}`;
+        const isDoubleClick = key === lastClickedKey && (now - lastClickTime) < 300;
+
+        lastClickedKey = key;
+        lastClickTime = now;
+
+        if (state === TaskState.Running || tracker.hasTerminal(item.entry)) {
+          if (isDoubleClick) {
+            runner.stop(item.entry);
+          } else {
+            runner.focusTerminal(item.entry);
+          }
+        } else {
+          if (isDoubleClick) {
+            runner.run(item.entry, provider.packageManager, false);
+          }
+          // Single click on non-running: do nothing
+        }
+      };
+    })()),
 
     vscode.commands.registerCommand("taskRunner.runTask", () => {
       showRunTaskQuickPick(provider, runner, tracker);

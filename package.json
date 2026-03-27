@@ -105,24 +105,14 @@
       ],
       "view/item/context": [
         {
-          "command": "taskRunner.configureTask",
-          "when": "view == taskRunner.view && viewItem =~ /^task\\./",
-          "group": "inline@1"
-        },
-        {
-          "command": "taskRunner.debug",
-          "when": "view == taskRunner.view && viewItem =~ /^task\\.(idle|succeeded|failed)$/",
-          "group": "inline@2"
-        },
-        {
           "command": "taskRunner.run",
           "when": "view == taskRunner.view && viewItem =~ /^task\\.(idle|succeeded|failed)$/",
-          "group": "inline@3"
+          "group": "inline@1"
         },
         {
           "command": "taskRunner.stop",
           "when": "view == taskRunner.view && viewItem == task.running",
-          "group": "inline@3"
+          "group": "inline@1"
         },
         {
           "command": "taskRunner.open",
@@ -130,9 +120,14 @@
           "group": "1_open"
         },
         {
+          "command": "taskRunner.debug",
+          "when": "view == taskRunner.view && viewItem =~ /^task\\.(idle|succeeded|failed)$/",
+          "group": "2_debug"
+        },
+        {
           "command": "taskRunner.configureTask",
           "when": "view == taskRunner.view && viewItem =~ /^task\\./",
-          "group": "2_configure"
+          "group": "3_configure"
         }
       ],
       "commandPalette": [
