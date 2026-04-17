@@ -2,7 +2,7 @@
   "name": "vscode-task-runner",
   "displayName": "Task Runner",
   "description": "A better task panel — discover and run npm/pnpm/yarn scripts and VS Code tasks in a single tree view",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "stamina",
   "license": "MIT",
   "repository": {
