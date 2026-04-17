@@ -2,6 +2,8 @@
 
 A better task panel for VS Code. Discover and run all your npm, pnpm, and yarn scripts alongside VS Code tasks in a single, organized tree view.
 
+![alt text](<CleanShot 2026-04-17 at 12.25.29@2x.png>)
+
 ## Features
 
 ### All your tasks in one place
