@@ -1,5 +1,5 @@
 {
-  "name": "task-runner",
+  "name": "vscode-task-runner",
   "displayName": "Task Runner",
   "description": "A better task panel — discover and run npm/pnpm/yarn scripts and VS Code tasks in a single tree view",
   "version": "0.1.0",
@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AudienseCo/vscode-task-runner"
+    "url": "https://github.com/panrafal/vscode-task-runner"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -26,6 +26,15 @@
     "workspaces"
   ],
   "icon": "icons/extension-icon.png",
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "vscode:prepublish": "npm run package",
+    "vsce:package": "vsce package --out dist/",
+    "vsce:publish": "vsce publish",
+    "release": "dotenvx run -fk \"$DOTENV_FK\" release-it --"
+  },
   "activationEvents": [
     "workspaceContains:**/package.json",
     "onView:taskRunner.view"
@@ -157,15 +166,6 @@
         }
       ]
     }
-  },
-  "scripts": {
-    "compile": "node esbuild.js",
-    "watch": "node esbuild.js --watch",
-    "package": "node esbuild.js --production",
-    "vscode:prepublish": "npm run package",
-    "vsce:package": "vsce package --out dist/",
-    "vsce:publish": "vsce publish",
-    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "jsonc-parser": "^3.2.1"

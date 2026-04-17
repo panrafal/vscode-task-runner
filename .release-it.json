@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/release-it/schema/release-it.json",
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "tagAnnotation": "Release v${version}",
+    "requireCleanWorkingDir": true,
+    "push": true
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "assets": ["dist/task-runner-*.vsix"],
+    "autoGenerate": true
+  },
+  "npm": {
+    "publish": false
+  },
+  "hooks": {
+    "before:init": ["rm -f dist/task-runner-*.vsix"],
+    "after:bump": ["npm run vsce:package"]
+  }
+}
