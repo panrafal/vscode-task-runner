@@ -62,12 +62,19 @@ File watchers monitor `package.json`, `tasks.json`, and `pnpm-workspace.yaml` fo
 
 ## Installation
 
-Search for **Task Runner** in the Extensions view (`Cmd+Shift+X` / `Ctrl+Shift+X`) and click **Install**.
+The extension is not published on the VS Code Marketplace. Install the latest `.vsix` from the [GitHub Releases page](https://github.com/panrafal/vscode-task-runner/releases):
 
-Or install from the command line:
+1. Download `vscode-task-runner-<version>.vsix` from the [latest release](https://github.com/panrafal/vscode-task-runner/releases/latest).
+2. Install it using either method below.
+
+**From the Extensions view:**
+
+Open the Extensions view (`Cmd+Shift+X` / `Ctrl+Shift+X`), click the `...` menu, choose **Install from VSIX...**, and select the downloaded file.
+
+**From the command line:**
 
 ```sh
-code --install-extension stamina.task-runner
+code --install-extension vscode-task-runner-<version>.vsix
 ```
 
 ## Requirements
