@@ -58,8 +58,17 @@
         ]
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "taskRunner",
+          "title": "Task Runner",
+          "icon": "icons/activity-bar.svg"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "taskRunner": [
         {
           "id": "taskRunner.view",
           "name": "Task Runner"
