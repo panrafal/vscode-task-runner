@@ -10,14 +10,14 @@
   "github": {
     "release": true,
     "releaseName": "v${version}",
-    "assets": ["dist/task-runner-*.vsix"],
+    "assets": ["dist/vscode-task-runner-*.vsix"],
     "autoGenerate": true
   },
   "npm": {
     "publish": false
   },
   "hooks": {
-    "before:init": ["rm -f dist/task-runner-*.vsix"],
-    "after:bump": ["npm run vsce:package"]
+    "before:init": ["rm -f dist/vscode-task-runner-*.vsix"],
+    "after:bump": ["pnpm run vsce:package"]
   }
 }

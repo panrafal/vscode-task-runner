@@ -13,3 +13,6 @@ esbuild.js
 .gitignore
 .release-it.json
 package-lock.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.npmrc
