@@ -3,7 +3,7 @@ import { TaskEntry, TaskState } from "../types";
 import { getTaskIcon, getStateColor } from "./iconResolver";
 
 export class GroupTreeItem extends vscode.TreeItem {
-  public readonly children: TaskTreeItem[] = [];
+  public readonly children: (GroupTreeItem | TaskTreeItem)[] = [];
 
   constructor(
     public readonly groupLabel: string,
@@ -26,14 +26,11 @@ export class GroupTreeItem extends vscode.TreeItem {
 export class TaskTreeItem extends vscode.TreeItem {
   constructor(
     public readonly entry: TaskEntry,
-    public readonly state: TaskState
+    public readonly state: TaskState,
+    displayLabel?: string
   ) {
-    super(
-      entry.kind === "script" ? entry.name : entry.label,
-      vscode.TreeItemCollapsibleState.None
-    );
-
-    const name = entry.kind === "script" ? entry.name : entry.label;
+    const name = displayLabel ?? (entry.kind === "script" ? entry.name : entry.label);
+    super(name, vscode.TreeItemCollapsibleState.None);
     this.contextValue = `task.${state}`;
 
     // Use the task's custom icon if defined, otherwise fall back to heuristic
@@ -45,16 +42,31 @@ export class TaskTreeItem extends vscode.TreeItem {
       this.iconPath = getTaskIcon(name, state);
     }
 
-    if (entry.kind === "script") {
-      this.tooltip = new vscode.MarkdownString(
-        `**${entry.name}**\n\n\`${entry.command}\`\n\n*${entry.packageJsonPath}:${entry.lineNumber}*`
-      );
-    } else {
+    // When the task has an active state, show a status label as the subtitle
+    // and color the item to match the status icon color.
+    // Otherwise fall back to any normal subtitle (e.g. detail for vscode tasks).
+    if (state === TaskState.Running) {
+      this.description = "Running";
+      this.resourceUri = vscode.Uri.parse(`taskrunner-task:/running`);
+    } else if (state === TaskState.Succeeded) {
+      this.description = "Succeeded";
+      this.resourceUri = vscode.Uri.parse(`taskrunner-task:/succeeded`);
+    } else if (state === TaskState.Failed) {
+      this.description = "Failed";
+      this.resourceUri = vscode.Uri.parse(`taskrunner-task:/failed`);
+    } else if (entry.kind === "vscodeTask") {
       // For VS Code tasks, show detail as description only if available
       const detail = (entry.definition as Record<string, unknown>).detail as string | undefined;
       if (detail) {
         this.description = detail;
       }
+    }
+
+    if (entry.kind === "script") {
+      this.tooltip = new vscode.MarkdownString(
+        `**${entry.name}**\n\n\`${entry.command}\`\n\n*${entry.packageJsonPath}:${entry.lineNumber}*`
+      );
+    } else {
       this.tooltip = new vscode.MarkdownString(
         `**${entry.label}**\n\nType: \`${entry.type}\`${entry.command ? `\nCommand: \`${entry.command}\`` : ""}\n\n*${entry.taskJsonPath}:${entry.lineNumber}*`
       );

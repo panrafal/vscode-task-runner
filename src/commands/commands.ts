@@ -61,6 +61,7 @@ export function registerCommands(
     vscode.commands.registerCommand("taskRunner.itemClicked", (() => {
       let lastClickedKey: string | undefined;
       let lastClickTime = 0;
+      let singleClickTimer: ReturnType<typeof setTimeout> | undefined;
 
       return (item: TaskTreeItem) => {
         if (!item?.entry) {
@@ -77,17 +78,29 @@ export function registerCommands(
         lastClickedKey = key;
         lastClickTime = now;
 
-        if (state === TaskState.Running || tracker.hasTerminal(item.entry)) {
-          if (isDoubleClick) {
+        if (isDoubleClick) {
+          // Cancel the pending single-click action
+          if (singleClickTimer) {
+            clearTimeout(singleClickTimer);
+            singleClickTimer = undefined;
+          }
+          if (state === TaskState.Running) {
             runner.stop(item.entry);
           } else {
-            runner.focusTerminal(item.entry);
-          }
-        } else {
-          if (isDoubleClick) {
             runner.run(item.entry, provider.packageManager, false);
           }
-          // Single click on non-running: do nothing
+        } else {
+          // Delay single-click so a follow-up click can cancel it
+          if (singleClickTimer) {
+            clearTimeout(singleClickTimer);
+          }
+          const entry = item.entry;
+          singleClickTimer = setTimeout(() => {
+            singleClickTimer = undefined;
+            if (tracker.getState(entry) === TaskState.Running || tracker.hasTerminal(entry)) {
+              runner.focusTerminal(entry);
+            }
+          }, 300);
         }
       };
     })()),
@@ -286,24 +299,25 @@ function showRunTaskQuickPick(
   tracker: TaskTracker
 ): void {
   const items: TaskQuickPickItem[] = [];
-  const nodes = provider.nodes;
 
-  for (const node of nodes) {
+  const visit = (node: GroupTreeItem | TaskTreeItem, groupPath: string[]): void => {
     if (node instanceof GroupTreeItem) {
-      // Separator for the group
+      const nextPath = [...groupPath, node.groupLabel];
       items.push({
-        label: node.groupLabel,
+        label: nextPath.join(" / "),
         kind: vscode.QuickPickItemKind.Separator,
       });
-      // Children
       for (const child of node.children) {
-        const state = tracker.getState(child.entry);
-        items.push(buildQuickPickItem(child.entry, state, node.groupLabel));
+        visit(child, nextPath);
       }
-    } else if (node instanceof TaskTreeItem) {
+    } else {
       const state = tracker.getState(node.entry);
-      items.push(buildQuickPickItem(node.entry, state));
+      items.push(buildQuickPickItem(node.entry, state, groupPath.join(" / ") || undefined));
     }
+  };
+
+  for (const node of provider.nodes) {
+    visit(node, []);
   }
 
   const quickPick = vscode.window.createQuickPick<TaskQuickPickItem>();

@@ -3,12 +3,6 @@ import * as path from "path";
 import { parseTree, findNodeAtLocation, Node } from "jsonc-parser";
 import { VscodeTaskEntry } from "../types";
 
-export interface ParsedTasksJson {
-  ungrouped: VscodeTaskEntry[];
-  groups: Map<string, VscodeTaskEntry[]>;
-  groupOrder: string[];
-}
-
 function offsetToLine(content: string, offset: number): number {
   let line = 1;
   for (let i = 0; i < offset && i < content.length; i++) {
@@ -44,32 +38,28 @@ function nodeToValue(node: Node): unknown {
 
 export async function parseTasksJson(
   workspaceFolder: vscode.WorkspaceFolder
-): Promise<ParsedTasksJson> {
+): Promise<VscodeTaskEntry[]> {
   const tasksJsonPath = path.join(workspaceFolder.uri.fsPath, ".vscode", "tasks.json");
   const uri = vscode.Uri.file(tasksJsonPath);
 
-  const result: ParsedTasksJson = {
-    ungrouped: [],
-    groups: new Map(),
-    groupOrder: [],
-  };
+  const entries: VscodeTaskEntry[] = [];
 
   let bytes: Uint8Array;
   try {
     bytes = await vscode.workspace.fs.readFile(uri);
   } catch {
-    return result;
+    return entries;
   }
 
   const content = Buffer.from(bytes).toString("utf-8");
   const tree = parseTree(content);
   if (!tree) {
-    return result;
+    return entries;
   }
 
   const tasksNode = findNodeAtLocation(tree, ["tasks"]);
   if (!tasksNode || tasksNode.type !== "array" || !tasksNode.children) {
-    return result;
+    return entries;
   }
 
   for (const taskNode of tasksNode.children) {
@@ -80,7 +70,6 @@ export async function parseTasksJson(
     const taskObj = nodeToValue(taskNode) as Record<string, unknown>;
     const label = (taskObj.label as string) || (taskObj.taskName as string) || "Unnamed task";
     const type = (taskObj.type as string) || "shell";
-    const group = (taskObj.category as string | undefined) || undefined;
     if (taskObj.hide === true) {
       continue;
     }
@@ -97,30 +86,19 @@ export async function parseTasksJson(
       }
     }
 
-    const entry: VscodeTaskEntry = {
+    entries.push({
       kind: "vscodeTask",
       label,
       taskJsonPath: tasksJsonPath,
       lineNumber: offsetToLine(content, taskNode.offset),
-      group,
       definition: { type, ...taskObj } as vscode.TaskDefinition,
       type,
       command,
       icon,
-    };
-
-    if (group) {
-      if (!result.groups.has(group)) {
-        result.groups.set(group, []);
-        result.groupOrder.push(group);
-      }
-      result.groups.get(group)!.push(entry);
-    } else {
-      result.ungrouped.push(entry);
-    }
+    });
   }
 
-  return result;
+  return entries;
 }
 
 /**

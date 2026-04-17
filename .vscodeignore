@@ -1,9 +1,14 @@
 .vscode/**
+.github/**
+.claude/**
 src/**
+scripts/**
 out/**
 node_modules/**
 tsconfig.json
 esbuild.js
 **/*.map
+**/*.vsix
 .gitignore
-CHANGELOG.md
+.release-it.json
+package-lock.json

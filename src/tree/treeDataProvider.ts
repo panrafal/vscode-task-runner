@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { PackageManager, TaskEntry, TaskState } from "../types";
+import { PackageManager, TaskEntry, VscodeTaskEntry } from "../types";
 import { detectPackageManager } from "../discovery/packageManager";
 import { parsePackageJson, ParsedPackageJson } from "../discovery/scriptParser";
 import { discoverWorkspacePackages } from "../discovery/workspaceDiscovery";
@@ -68,23 +68,14 @@ export class TaskRunnerTreeDataProvider implements vscode.TreeDataProvider<TreeN
     const rootNodes: TreeNode[] = [];
 
     // 1. Parse VS Code tasks.json
-    const tasksJson = await parseTasksJson(folder);
-
-    // Add ungrouped VS Code tasks
-    for (const entry of tasksJson.ungrouped) {
+    // Group VS Code tasks by slashes in their label (supports nested groups).
+    const vscodeEntries = await parseTasksJson(folder);
+    const vscodeNodes = this.buildVscodeTaskNodes(vscodeEntries);
+    for (const entry of vscodeEntries) {
       allEntries.push(entry);
-      rootNodes.push(this.createTaskItem(entry));
     }
-
-    // Add grouped VS Code tasks
-    for (const groupName of tasksJson.groupOrder) {
-      const entries = tasksJson.groups.get(groupName)!;
-      const group = new GroupTreeItem(groupName, `vscode-group:${groupName}`);
-      for (const entry of entries) {
-        allEntries.push(entry);
-        group.children.push(this.createTaskItem(entry));
-      }
-      rootNodes.push(group);
+    for (const node of vscodeNodes) {
+      rootNodes.push(node);
     }
 
     // 2. Parse root package.json
@@ -148,31 +139,68 @@ export class TaskRunnerTreeDataProvider implements vscode.TreeDataProvider<TreeN
     this._onDidChangeTreeData.fire();
   }
 
-  private createTaskItem(entry: TaskEntry): TaskTreeItem {
+  private createTaskItem(entry: TaskEntry, displayLabel?: string): TaskTreeItem {
     const state = this.tracker.getState(entry);
-    return new TaskTreeItem(entry, state);
+    return new TaskTreeItem(entry, state, displayLabel);
+  }
+
+  /**
+   * Build tree nodes for VS Code tasks, deriving nested groups by splitting
+   * each task label on `/`.
+   */
+  private buildVscodeTaskNodes(
+    entries: VscodeTaskEntry[]
+  ): (GroupTreeItem | TaskTreeItem)[] {
+    const roots: (GroupTreeItem | TaskTreeItem)[] = [];
+    const groupsByPath = new Map<string, GroupTreeItem>();
+
+    for (const entry of entries) {
+      const segments = entry.label.split("/").map((s) => s.trim()).filter((s) => s.length > 0);
+      if (segments.length <= 1) {
+        roots.push(this.createTaskItem(entry));
+        continue;
+      }
+
+      const leaf = segments[segments.length - 1];
+      const groupSegments = segments.slice(0, -1);
+
+      let parentChildren = roots;
+      let currentPath = "";
+      for (const segment of groupSegments) {
+        currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+        let group = groupsByPath.get(currentPath);
+        if (!group) {
+          group = new GroupTreeItem(segment, `vscode-group:${currentPath}`);
+          groupsByPath.set(currentPath, group);
+          parentChildren.push(group);
+        }
+        parentChildren = group.children;
+      }
+
+      parentChildren.push(this.createTaskItem(entry, leaf));
+    }
+
+    return roots;
   }
 
   /**
    * Refresh just the tree items (update state/icons) without re-parsing files.
    */
   refreshState(): void {
-    // Rebuild tree items with current states
-    for (const node of this.rootNodes) {
-      if (node instanceof GroupTreeItem) {
-        for (let i = 0; i < node.children.length; i++) {
-          const child = node.children[i];
-          node.children[i] = this.createTaskItem(child.entry);
-        }
-      }
-    }
-    // Also rebuild any root-level TaskTreeItems (ungrouped vscode tasks)
-    for (let i = 0; i < this.rootNodes.length; i++) {
-      const node = this.rootNodes[i];
-      if (node instanceof TaskTreeItem) {
-        this.rootNodes[i] = this.createTaskItem(node.entry);
-      }
-    }
+    this.rootNodes = this.rootNodes.map((node) => this.refreshNode(node));
     this._onDidChangeTreeData.fire();
+  }
+
+  private refreshNode(node: TreeNode): TreeNode {
+    if (node instanceof GroupTreeItem) {
+      for (let i = 0; i < node.children.length; i++) {
+        node.children[i] = this.refreshNode(node.children[i]) as
+          | GroupTreeItem
+          | TaskTreeItem;
+      }
+      return node;
+    }
+    const displayLabel = typeof node.label === "string" ? node.label : undefined;
+    return this.createTaskItem(node.entry, displayLabel);
   }
 }

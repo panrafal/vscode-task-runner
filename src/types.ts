@@ -30,7 +30,6 @@ export interface VscodeTaskEntry {
   label: string;
   taskJsonPath: string;
   lineNumber: number;
-  group?: string;
   definition: vscode.TaskDefinition;
   type: string;
   command?: string;

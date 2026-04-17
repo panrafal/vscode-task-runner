@@ -162,8 +162,10 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "package": "node esbuild.js --production",
-    "vsce:package": "npm run package && vsce package",
-    "vsce:publish": "npm run package && vsce publish"
+    "vscode:prepublish": "npm run package",
+    "vsce:package": "vsce package --out dist/",
+    "vsce:publish": "vsce publish",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "jsonc-parser": "^3.2.1"
@@ -171,7 +173,9 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.2",
     "esbuild": "^0.19.0",
+    "release-it": "^17.10.0",
     "typescript": "^5.3.0"
   }
 }
