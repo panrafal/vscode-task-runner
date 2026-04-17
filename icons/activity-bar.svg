@@ -1,4 +1,8 @@
-<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-  <rect x="36" y="36" width="184" height="184" rx="24" ry="24" fill="none" stroke="currentColor" stroke-width="14"/>
-  <polygon points="100,74 100,182 188,128" fill="currentColor"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;">
+    <path d="M220,60L220,196C220,209.246 209.246,220 196,220L60,220C46.754,220 36,209.246 36,196L36,60C36,46.754 46.754,36 60,36L196,36C209.246,36 220,46.754 220,60Z" style="fill:none;stroke:black;stroke-width:14px;"/>
+    <g transform="matrix(1,0,0,1,-9,0)">
+        <path d="M100,74L100,182L188,128L100,74Z" style="fill-rule:nonzero;"/>
+    </g>
 </svg>
