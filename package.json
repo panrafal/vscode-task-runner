@@ -33,7 +33,7 @@
     "vscode:prepublish": "npm run package",
     "vsce:package": "vsce package --out dist/",
     "vsce:publish": "vsce publish",
-    "release": "dotenvx run -fk \"$DOTENV_FK\" release-it --"
+    "release": "GITHUB_TOKEN=$(gh auth token) release-it"
   },
   "activationEvents": [
     "workspaceContains:**/package.json",
