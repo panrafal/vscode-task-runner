@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { modify, applyEdits, parse } from "jsonc-parser";
-import { TaskEntry, ScriptEntry, VscodeTaskEntry, TaskState } from "../types";
+import { TaskEntry, ScriptEntry, VscodeTaskEntry, TaskState, taskKey } from "../types";
 import { TaskRunnerTreeDataProvider } from "../tree/treeDataProvider";
 import { GroupTreeItem, TaskTreeItem } from "../tree/treeItems";
 import { TaskRunner } from "../execution/taskRunner";
@@ -301,34 +301,28 @@ function showRunTaskQuickPick(
   tracker: TaskTracker,
   usage: TaskUsageTracker
 ): void {
-  const items: TaskQuickPickItem[] = [];
   const allEntries: TaskEntry[] = [];
   const groupPathByEntry = new Map<TaskEntry, string | undefined>();
 
-  const visit = (node: GroupTreeItem | TaskTreeItem, groupPath: string[]): void => {
+  const collect = (node: GroupTreeItem | TaskTreeItem, groupPath: string[]): void => {
     if (node instanceof GroupTreeItem) {
       const nextPath = [...groupPath, node.groupLabel];
-      items.push({
-        label: nextPath.join(" / "),
-        kind: vscode.QuickPickItemKind.Separator,
-      });
       for (const child of node.children) {
-        visit(child, nextPath);
+        collect(child, nextPath);
       }
     } else {
-      const state = tracker.getState(node.entry);
-      const groupName = groupPath.join(" / ") || undefined;
       allEntries.push(node.entry);
-      groupPathByEntry.set(node.entry, groupName);
-      items.push(buildQuickPickItem(node.entry, state, groupName));
+      groupPathByEntry.set(node.entry, groupPath.join(" / ") || undefined);
     }
   };
 
   for (const node of provider.nodes) {
-    visit(node, []);
+    collect(node, []);
   }
 
   const recent = usage.getRecent(allEntries, 8);
+  const recentKeys = new Set(recent.map(taskKey));
+
   const finalItems: TaskQuickPickItem[] = [];
   if (recent.length > 0) {
     finalItems.push({
@@ -341,7 +335,41 @@ function showRunTaskQuickPick(
       );
     }
   }
-  finalItems.push(...items);
+
+  const hasVisibleDescendant = (node: GroupTreeItem | TaskTreeItem): boolean => {
+    if (node instanceof TaskTreeItem) {
+      return !recentKeys.has(taskKey(node.entry));
+    }
+    return node.children.some((child) => hasVisibleDescendant(child));
+  };
+
+  const visit = (node: GroupTreeItem | TaskTreeItem, groupPath: string[]): void => {
+    if (node instanceof GroupTreeItem) {
+      const nextPath = [...groupPath, node.groupLabel];
+      if (!hasVisibleDescendant(node)) {
+        return;
+      }
+      finalItems.push({
+        label: nextPath.join(" / "),
+        kind: vscode.QuickPickItemKind.Separator,
+      });
+      for (const child of node.children) {
+        visit(child, nextPath);
+      }
+    } else {
+      if (recentKeys.has(taskKey(node.entry))) {
+        return;
+      }
+      const state = tracker.getState(node.entry);
+      finalItems.push(
+        buildQuickPickItem(node.entry, state, groupPath.join(" / ") || undefined)
+      );
+    }
+  };
+
+  for (const node of provider.nodes) {
+    visit(node, []);
+  }
 
   const quickPick = vscode.window.createQuickPick<TaskQuickPickItem>();
   quickPick.items = finalItems;
