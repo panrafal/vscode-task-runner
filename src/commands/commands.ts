@@ -6,13 +6,15 @@ import { TaskRunnerTreeDataProvider } from "../tree/treeDataProvider";
 import { GroupTreeItem, TaskTreeItem } from "../tree/treeItems";
 import { TaskRunner } from "../execution/taskRunner";
 import { TaskTracker } from "../execution/taskTracker";
-import { getIconId } from "../tree/iconResolver";
+import { TaskUsageTracker } from "../execution/taskUsageTracker";
+import { getIconId, getStateColor } from "../tree/iconResolver";
 
 export function registerCommands(
   context: vscode.ExtensionContext,
   provider: TaskRunnerTreeDataProvider,
   runner: TaskRunner,
-  tracker: TaskTracker
+  tracker: TaskTracker,
+  usage: TaskUsageTracker
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("taskRunner.run", (item: TaskTreeItem) => {
@@ -106,7 +108,7 @@ export function registerCommands(
     })()),
 
     vscode.commands.registerCommand("taskRunner.runTask", () => {
-      showRunTaskQuickPick(provider, runner, tracker);
+      showRunTaskQuickPick(provider, runner, tracker, usage);
     })
   );
 }
@@ -296,9 +298,12 @@ function stateLabel(state: TaskState): string {
 function showRunTaskQuickPick(
   provider: TaskRunnerTreeDataProvider,
   runner: TaskRunner,
-  tracker: TaskTracker
+  tracker: TaskTracker,
+  usage: TaskUsageTracker
 ): void {
   const items: TaskQuickPickItem[] = [];
+  const allEntries: TaskEntry[] = [];
+  const groupPathByEntry = new Map<TaskEntry, string | undefined>();
 
   const visit = (node: GroupTreeItem | TaskTreeItem, groupPath: string[]): void => {
     if (node instanceof GroupTreeItem) {
@@ -312,7 +317,10 @@ function showRunTaskQuickPick(
       }
     } else {
       const state = tracker.getState(node.entry);
-      items.push(buildQuickPickItem(node.entry, state, groupPath.join(" / ") || undefined));
+      const groupName = groupPath.join(" / ") || undefined;
+      allEntries.push(node.entry);
+      groupPathByEntry.set(node.entry, groupName);
+      items.push(buildQuickPickItem(node.entry, state, groupName));
     }
   };
 
@@ -320,8 +328,23 @@ function showRunTaskQuickPick(
     visit(node, []);
   }
 
+  const recent = usage.getRecent(allEntries, 8);
+  const finalItems: TaskQuickPickItem[] = [];
+  if (recent.length > 0) {
+    finalItems.push({
+      label: "Recently Used",
+      kind: vscode.QuickPickItemKind.Separator,
+    });
+    for (const entry of recent) {
+      finalItems.push(
+        buildQuickPickItem(entry, tracker.getState(entry), groupPathByEntry.get(entry))
+      );
+    }
+  }
+  finalItems.push(...items);
+
   const quickPick = vscode.window.createQuickPick<TaskQuickPickItem>();
-  quickPick.items = items;
+  quickPick.items = finalItems;
   quickPick.placeholder = "Select a task to run";
   quickPick.matchOnDescription = true;
 
@@ -359,9 +382,16 @@ function buildQuickPickItem(
     parts.push(status);
   }
 
+  const stateColor = getStateColor(state);
+  const customColor =
+    entry.kind === "vscodeTask" && entry.icon?.color
+      ? new vscode.ThemeColor(entry.icon.color)
+      : undefined;
+
   return {
-    label: `$(${iconId}) ${name}`,
+    label: name,
     description: parts.join("  "),
+    iconPath: new vscode.ThemeIcon(iconId, stateColor ?? customColor),
     entry,
   };
 }

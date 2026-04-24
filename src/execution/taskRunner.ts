@@ -9,10 +9,14 @@ import {
 } from "../types";
 import { getExecuteCommand } from "../discovery/packageManager";
 import { TaskTracker } from "./taskTracker";
+import { TaskUsageTracker } from "./taskUsageTracker";
 import { TASK_TYPE } from "./taskProvider";
 
 export class TaskRunner {
-  constructor(private tracker: TaskTracker) {}
+  constructor(
+    private tracker: TaskTracker,
+    private usage: TaskUsageTracker
+  ) {}
 
   async run(
     entry: TaskEntry,
@@ -25,6 +29,8 @@ export class TaskRunner {
       this.focusTerminal(entry);
       return;
     }
+
+    this.usage.recordRun(entry);
 
     if (entry.kind === "script") {
       await this.runScript(entry, packageManager, debug);

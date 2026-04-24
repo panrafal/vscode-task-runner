@@ -18,7 +18,7 @@ export class TaskTracker {
   /** Keys that were manually stopped — should reset to Idle, not Failed */
   private _pendingStop = new Set<string>();
 
-  private _onDidChangeState = new vscode.EventEmitter<void>();
+  private _onDidChangeState = new vscode.EventEmitter<TaskEntry | undefined>();
   readonly onDidChangeState = this._onDidChangeState.event;
 
   /**
@@ -132,7 +132,7 @@ export class TaskTracker {
       }
     }
 
-    this._onDidChangeState.fire();
+    this._onDidChangeState.fire(entry);
   }
 
   markStopped(entry: TaskEntry): void {
@@ -149,6 +149,8 @@ export class TaskTracker {
     if (!tracked || tracked.state !== TaskState.Running) {
       return;
     }
+
+    const changedEntry = tracked.entry;
 
     // If manually stopped, reset to Idle instead of marking Failed
     const wasStopped = this._pendingStop.has(key);
@@ -182,7 +184,7 @@ export class TaskTracker {
       }
     }
 
-    this._onDidChangeState.fire();
+    this._onDidChangeState.fire(changedEntry);
   }
 
   /**
@@ -254,7 +256,7 @@ export class TaskTracker {
         this._tracked.delete(key);
       }
     }
-    this._onDidChangeState.fire();
+    this._onDidChangeState.fire(undefined);
   }
 
   private _entryCache = new Map<string, TaskEntry>();

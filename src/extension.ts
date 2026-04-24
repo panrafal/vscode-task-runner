@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { TaskRunnerTreeDataProvider } from "./tree/treeDataProvider";
 import { TaskTracker } from "./execution/taskTracker";
 import { TaskRunner } from "./execution/taskRunner";
+import { TaskUsageTracker } from "./execution/taskUsageTracker";
 import { registerCommands } from "./commands/commands";
 import { createFileWatchers } from "./watchers/fileWatcher";
 import { GroupDecorationProvider } from "./tree/groupDecorationProvider";
@@ -9,8 +10,9 @@ import { TaskRunnerTaskProvider, TASK_TYPE } from "./execution/taskProvider";
 
 export function activate(context: vscode.ExtensionContext) {
   const tracker = new TaskTracker();
+  const usage = new TaskUsageTracker(context);
   const provider = new TaskRunnerTreeDataProvider(tracker);
-  const runner = new TaskRunner(tracker);
+  const runner = new TaskRunner(tracker, usage);
 
   // Register the tree view
   const treeView = vscode.window.createTreeView("taskRunner.view", {
@@ -30,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register commands
-  registerCommands(context, provider, runner, tracker);
+  registerCommands(context, provider, runner, tracker, usage);
 
   // Set up file watchers
   const watchers = createFileWatchers(provider);
@@ -53,9 +55,12 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Subscribe to tracker state changes for tree refresh
+  // Subscribe to tracker state changes for tree refresh + usage tracking
   context.subscriptions.push(
-    tracker.onDidChangeState(() => {
+    tracker.onDidChangeState((entry) => {
+      if (entry) {
+        usage.recordStateChange(entry);
+      }
       provider.refreshState();
     })
   );
