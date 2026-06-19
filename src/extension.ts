@@ -55,6 +55,35 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Track debug runs (js-debug node-terminal sessions). Only the root session
+  // carries our __taskRunnerKey and has no parent — child node sessions (one
+  // per attached process) are ignored.
+  context.subscriptions.push(
+    vscode.debug.onDidStartDebugSession((session) => {
+      if (session.parentSession) {
+        return;
+      }
+      const key = session.configuration?.__taskRunnerKey as string | undefined;
+      if (!key) {
+        return;
+      }
+      tracker.trackDebugStart(key, session);
+      provider.refreshState();
+    }),
+
+    vscode.debug.onDidTerminateDebugSession((session) => {
+      if (session.parentSession) {
+        return;
+      }
+      const key = session.configuration?.__taskRunnerKey as string | undefined;
+      if (!key) {
+        return;
+      }
+      tracker.trackDebugEnd(key);
+      provider.refreshState();
+    })
+  );
+
   // Subscribe to tracker state changes for tree refresh + usage tracking
   context.subscriptions.push(
     tracker.onDidChangeState((entry) => {

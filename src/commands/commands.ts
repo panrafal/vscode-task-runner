@@ -108,7 +108,11 @@ export function registerCommands(
     })()),
 
     vscode.commands.registerCommand("taskRunner.runTask", () => {
-      showRunTaskQuickPick(provider, runner, tracker, usage);
+      showRunTaskQuickPick(provider, runner, tracker, usage, false);
+    }),
+
+    vscode.commands.registerCommand("taskRunner.debugTask", () => {
+      showRunTaskQuickPick(provider, runner, tracker, usage, true);
     })
   );
 }
@@ -299,7 +303,8 @@ function showRunTaskQuickPick(
   provider: TaskRunnerTreeDataProvider,
   runner: TaskRunner,
   tracker: TaskTracker,
-  usage: TaskUsageTracker
+  usage: TaskUsageTracker,
+  debug: boolean
 ): void {
   const allEntries: TaskEntry[] = [];
   const groupPathByEntry = new Map<TaskEntry, string | undefined>();
@@ -373,7 +378,7 @@ function showRunTaskQuickPick(
 
   const quickPick = vscode.window.createQuickPick<TaskQuickPickItem>();
   quickPick.items = finalItems;
-  quickPick.placeholder = "Select a task to run";
+  quickPick.placeholder = debug ? "Select a task to debug" : "Select a task to run";
   quickPick.matchOnDescription = true;
 
   quickPick.onDidAccept(() => {
@@ -383,7 +388,7 @@ function showRunTaskQuickPick(
       if (state === TaskState.Running) {
         runner.focusTerminal(selected.entry);
       } else {
-        runner.run(selected.entry, provider.packageManager, false);
+        runner.run(selected.entry, provider.packageManager, debug);
       }
     }
     quickPick.dispose();

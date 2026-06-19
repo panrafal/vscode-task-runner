@@ -77,6 +77,31 @@ export class TaskTracker {
     return undefined;
   }
 
+  getDebugSession(entry: TaskEntry): vscode.DebugSession | undefined {
+    const key = taskKey(entry);
+    const tracked = this._tracked.get(key);
+    if (tracked?.debugSession) {
+      return tracked.debugSession;
+    }
+
+    // Check cross-referenced entry for debug session
+    const crossKey = this._crossRef.get(key);
+    if (crossKey) {
+      return this._tracked.get(crossKey)?.debugSession;
+    }
+
+    return undefined;
+  }
+
+  /** Get the entry cross-referenced with this one, if any (e.g. an npm vscode task -> its script). */
+  getCrossRefEntry(entry: TaskEntry): TaskEntry | undefined {
+    const crossKey = this._crossRef.get(taskKey(entry));
+    if (!crossKey) {
+      return undefined;
+    }
+    return this._entryCache.get(crossKey);
+  }
+
   /**
    * Get all possible terminal names for an entry, including its cross-referenced counterpart.
    */
@@ -135,6 +160,56 @@ export class TaskTracker {
     this._onDidChangeState.fire(entry);
   }
 
+  /**
+   * Track the start of a debug-session run (js-debug node-terminal).
+   * Called optimistically from the runner with the entry (no session yet),
+   * then again from the debug-session start event with the key + session.
+   * Idempotent: upgrades the existing tracked entry with the session handle.
+   */
+  trackDebugStart(
+    entryOrKey: TaskEntry | string,
+    session?: vscode.DebugSession
+  ): void {
+    const key = typeof entryOrKey === "string" ? entryOrKey : taskKey(entryOrKey);
+    const existing = this._tracked.get(key);
+    const resolvedEntry =
+      (typeof entryOrKey === "string" ? this._entryCache.get(key) : entryOrKey) ??
+      existing?.entry;
+    if (!resolvedEntry) {
+      return;
+    }
+
+    const tracked: TrackedTask = existing ?? {
+      entry: resolvedEntry,
+      state: TaskState.Running,
+    };
+    tracked.state = TaskState.Running;
+    if (session) {
+      tracked.debugSession = session;
+    }
+    this._tracked.set(key, tracked);
+
+    // Mirror onto the cross-referenced entry so both show Running
+    const crossKey = this._crossRef.get(key);
+    if (crossKey) {
+      const crossExisting = this._tracked.get(crossKey);
+      const crossEntry = crossExisting?.entry ?? this._entryCache.get(crossKey);
+      if (crossEntry) {
+        const crossTracked: TrackedTask = crossExisting ?? {
+          entry: crossEntry,
+          state: TaskState.Running,
+        };
+        crossTracked.state = TaskState.Running;
+        if (session) {
+          crossTracked.debugSession = session;
+        }
+        this._tracked.set(crossKey, crossTracked);
+      }
+    }
+
+    this._onDidChangeState.fire(resolvedEntry);
+  }
+
   markStopped(entry: TaskEntry): void {
     const key = taskKey(entry);
     this._pendingStop.add(key);
@@ -182,6 +257,30 @@ export class TaskTracker {
           }
         }
       }
+    }
+
+    this._onDidChangeState.fire(changedEntry);
+  }
+
+  /**
+   * Track the end of a debug-session run. Debug sessions expose no exit code,
+   * so we reset to Idle (delete the tracked entry) instead of computing
+   * Succeeded/Failed — landing on Idle re-enables the Run/Debug buttons.
+   */
+  trackDebugEnd(key: string): void {
+    const tracked = this._tracked.get(key);
+    if (!tracked) {
+      return;
+    }
+    const changedEntry = tracked.entry;
+
+    this._pendingStop.delete(key);
+    this._tracked.delete(key);
+
+    const crossKey = this._crossRef.get(key);
+    if (crossKey) {
+      this._pendingStop.delete(crossKey);
+      this._tracked.delete(crossKey);
     }
 
     this._onDidChangeState.fire(changedEntry);

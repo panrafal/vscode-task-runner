@@ -118,6 +118,10 @@
       {
         "command": "taskRunner.runTask",
         "title": "Task Runner: Run Task"
+      },
+      {
+        "command": "taskRunner.debugTask",
+        "title": "Task Runner: Debug Task"
       }
     ],
     "menus": {

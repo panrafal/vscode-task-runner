@@ -42,6 +42,7 @@ export interface TrackedTask {
   entry: TaskEntry;
   state: TaskState;
   execution?: vscode.TaskExecution;
+  debugSession?: vscode.DebugSession;
 }
 
 export function taskKey(entry: TaskEntry): string {

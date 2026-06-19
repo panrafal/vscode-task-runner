@@ -6,6 +6,7 @@ import {
   VscodeTaskEntry,
   PackageManager,
   TaskState,
+  taskKey,
 } from "../types";
 import { getExecuteCommand } from "../discovery/packageManager";
 import { TaskTracker } from "./taskTracker";
@@ -35,11 +36,18 @@ export class TaskRunner {
     if (entry.kind === "script") {
       await this.runScript(entry, packageManager, debug);
     } else {
-      await this.runVscodeTask(entry, debug);
+      await this.runVscodeTask(entry, packageManager, debug);
     }
   }
 
   async stop(entry: TaskEntry): Promise<void> {
+    const session = this.tracker.getDebugSession(entry);
+    if (session) {
+      this.tracker.markStopped(entry);
+      await vscode.debug.stopDebugging(session);
+      return;
+    }
+
     const execution = this.tracker.getExecution(entry);
     if (execution) {
       this.tracker.markStopped(entry);
@@ -85,9 +93,14 @@ export class TaskRunner {
     const taskName = `${entry.name} - ${entry.packageName}`;
     const fullCommand = `${cmd} ${args.join(" ")} ${entry.name}`;
 
+    if (debug) {
+      await this.runWithDebugger(entry, fullCommand, entry.packageDir, taskName);
+      return;
+    }
+
     const taskDefinition: vscode.TaskDefinition = {
       type: TASK_TYPE,
-      command: debug ? fullCommand : fullCommand,
+      command: fullCommand,
       cwd: entry.packageDir,
       script: entry.name,
       packageJsonPath: entry.packageJsonPath,
@@ -96,9 +109,6 @@ export class TaskRunner {
     const shellOpts: vscode.ShellExecutionOptions = {
       cwd: entry.packageDir,
     };
-    if (debug) {
-      shellOpts.env = { NODE_OPTIONS: "--inspect" };
-    }
 
     const execution = new vscode.ShellExecution(fullCommand, shellOpts);
 
@@ -120,10 +130,82 @@ export class TaskRunner {
     this.tracker.trackStart(entry, taskExecution);
   }
 
+  /**
+   * Run a command inside a JavaScript Debug Terminal (js-debug `node-terminal`),
+   * so every node process it spawns — recursively — auto-attaches to the
+   * debugger with no port collisions. State is tracked via debug-session events
+   * (see extension.ts), correlated by the `__taskRunnerKey` config property.
+   */
+  private async runWithDebugger(
+    entry: TaskEntry,
+    command: string,
+    cwd: string,
+    name: string
+  ): Promise<void> {
+    const key = taskKey(entry);
+    const folder =
+      vscode.workspace.getWorkspaceFolder(vscode.Uri.file(cwd)) ??
+      vscode.workspace.workspaceFolders?.[0];
+
+    // Mark Running up-front so the Stop button appears immediately; the session
+    // handle is attached later when onDidStartDebugSession fires.
+    this.tracker.trackDebugStart(entry);
+
+    const config: vscode.DebugConfiguration = {
+      type: "node-terminal",
+      name,
+      request: "launch",
+      command,
+      cwd,
+      __taskRunnerKey: key,
+    };
+
+    const ok = await vscode.debug.startDebugging(folder, config);
+    if (!ok) {
+      this.tracker.trackDebugEnd(key);
+      vscode.window.showErrorMessage(
+        `Could not start a debug session for "${name}".`
+      );
+    }
+  }
+
   private async runVscodeTask(
     entry: VscodeTaskEntry,
+    packageManager: PackageManager,
     debug: boolean
   ): Promise<void> {
+    if (debug) {
+      // Prefer the task's own command; otherwise resolve npm tasks to their
+      // underlying script command via the cross-reference.
+      if (entry.command) {
+        const cwd =
+          (entry.definition.cwd as string | undefined) ??
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (cwd) {
+          await this.runWithDebugger(entry, entry.command, cwd, entry.label);
+          return;
+        }
+      } else {
+        const crossRef = this.tracker.getCrossRefEntry(entry);
+        if (crossRef?.kind === "script") {
+          const [cmd, ...args] = getExecuteCommand(packageManager);
+          const command = `${cmd} ${args.join(" ")} ${crossRef.name}`;
+          await this.runWithDebugger(
+            entry,
+            command,
+            crossRef.packageDir,
+            entry.label
+          );
+          return;
+        }
+      }
+
+      vscode.window.showWarningMessage(
+        `Debug is not available for task "${entry.label}" (no runnable command found); running normally.`
+      );
+      // Fall through to normal execution.
+    }
+
     // Try to find and execute the task using VS Code's task system
     const allTasks = await vscode.tasks.fetchTasks();
     const matchingTask = allTasks.find((t) => t.name === entry.label);
